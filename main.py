@@ -12,18 +12,25 @@ st.set_page_config(
 
 # ================== TITLE ==================
 st.title("📊 Auto Generated Dashboard")
-st.caption("Upload any CSV file and get instant insights")
+st.caption("Upload any CSV or Excel file and get instant insights")
 
 # ================== FILE UPLOAD ==================
-file = st.file_uploader("📂 Upload your CSV file", type=["csv","xlsx"])
+file = st.file_uploader("📂 Upload your file", type=["csv","xlsx","xls"])
 
 if file is not None:
+
     # ================== READ DATA ==================
-    if file is not None:
+    try:
         if file.name.endswith(".csv"):
             df = pd.read_csv(file)
-        elif file.name.endswith(".xlsx"):
+
+        elif file.name.endswith(".xlsx") or file.name.endswith(".xls"):
             df = pd.read_excel(file)
+
+    except Exception as e:
+        st.error(f"Error reading file: {e}")
+        st.stop()
+
     # ================== DATA PREVIEW ==================
     st.subheader("🔍 Dataset Preview")
     st.dataframe(df, use_container_width=True)
@@ -44,7 +51,7 @@ if file is not None:
     filtered_df = df.copy()
 
     for col in categorical_cols:
-        selected = st.sidebar.multiselect(f"Filter {col}", df[col].unique())
+        selected = st.sidebar.multiselect(f"Filter {col}", df[col].dropna().unique())
         if selected:
             filtered_df = filtered_df[filtered_df[col].isin(selected)]
 
@@ -53,42 +60,39 @@ if file is not None:
     if len(numeric_cols) > 0:
         kpi_col = st.selectbox("Select numeric column for KPI", numeric_cols)
         k1, k2, k3, k4 = st.columns(4)
+
         k1.metric("Mean", round(filtered_df[kpi_col].mean(), 2))
         k2.metric("Max", filtered_df[kpi_col].max())
         k3.metric("Min", filtered_df[kpi_col].min())
         k4.metric("Sum", round(filtered_df[kpi_col].sum(), 2))
 
-    # ================== MULTIPLE VISUALIZATIONS ==================
-    st.subheader("📊 Multiple Visualizations (6+ Charts)")
+    # ================== VISUALIZATION ==================
+    st.subheader("📊 Multiple Visualizations")
     selected_col = st.selectbox("Select column to visualize", df.columns)
 
-    # ---------- NUMERIC VISUALS ----------
+    # ---------- NUMERIC ----------
     if selected_col in numeric_cols:
+
         c1, c2 = st.columns(2)
 
-        # 1️⃣ Histogram
         with c1:
             fig1 = px.histogram(filtered_df, x=selected_col, title="Histogram")
             st.plotly_chart(fig1, use_container_width=True)
 
-        # 2️⃣ Box Plot
         with c2:
             fig2 = px.box(filtered_df, y=selected_col, title="Box Plot")
             st.plotly_chart(fig2, use_container_width=True)
 
         c3, c4 = st.columns(2)
 
-        # 3️⃣ Line Chart
         with c3:
             fig3 = px.line(filtered_df, y=selected_col, title="Line Chart")
             st.plotly_chart(fig3, use_container_width=True)
 
-        # 4️⃣ Scatter Plot
         with c4:
             fig4 = px.scatter(filtered_df, y=selected_col, title="Scatter Plot")
             st.plotly_chart(fig4, use_container_width=True)
 
-        # 5️⃣ Violin Plot (Graph Objects)
         fig5 = go.Figure()
         fig5.add_trace(go.Violin(
             y=filtered_df[selected_col],
@@ -98,40 +102,31 @@ if file is not None:
         fig5.update_layout(title="Violin Plot")
         st.plotly_chart(fig5, use_container_width=True)
 
-    # ---------- CATEGORICAL VISUALS ----------
+    # ---------- CATEGORICAL ----------
     elif selected_col in categorical_cols:
+
         value_counts = filtered_df[selected_col].value_counts().reset_index()
         value_counts.columns = [selected_col, "Count"]
 
         c1, c2 = st.columns(2)
 
-        # 6️⃣ Bar Chart
         with c1:
-            fig6 = px.bar(
-                value_counts,
-                x=selected_col,
-                y="Count",
-                text="Count",
-                title="Bar Chart"
-            )
+            fig6 = px.bar(value_counts, x=selected_col, y="Count", text="Count", title="Bar Chart")
             st.plotly_chart(fig6, use_container_width=True)
 
-        # 7️⃣ Donut Chart
         with c2:
-            fig7 = go.Figure(
-                data=[go.Pie(
-                    labels=value_counts[selected_col],
-                    values=value_counts["Count"],
-                    hole=0.4
-                )]
-            )
+            fig7 = go.Figure(data=[go.Pie(
+                labels=value_counts[selected_col],
+                values=value_counts["Count"],
+                hole=0.4
+            )])
             fig7.update_layout(title="Donut Chart")
             st.plotly_chart(fig7, use_container_width=True)
 
     else:
         st.info("⚠️ Selected column type not supported.")
 
-    # ================== CORRELATION HEATMAP ==================
+    # ================== CORRELATION ==================
     if len(numeric_cols) > 1:
         st.subheader("🔗 Correlation Heatmap")
         corr = filtered_df[numeric_cols].corr()
@@ -139,4 +134,4 @@ if file is not None:
         st.plotly_chart(fig8, use_container_width=True)
 
 else:
-    st.info("👆 Upload a CSV file to generate the dashboard")
+    st.info("👆 Upload a CSV or Excel file to generate the dashboard")
